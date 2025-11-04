@@ -1,39 +1,74 @@
 from django.contrib import admin
-from .models import CONFERENCE,SUBMISSION
+from .models import *
 # Register your models here.
-admin.site.site_title="gestion conferance 25/26"
-admin.site.site_header="gestion conferance"
-admin.site.site_index_title="Django app conferance"
-# admin.site.register(CONFERENCE)
-admin.site.register(SUBMISSION)
+admin.site.site_title = 'Conference Management 25/26'
+admin.site.site_header = 'Conference Management 25/26'
+admin.site.index_title = 'Conference Management 25/26'     
 
-class SubmissionInline(admin.StackedInline): #TabularInline
+@admin.action(description="Mark as payed")
+def marked_as_payed(modeladmin, request, queryset):
+    queryset.update(payed=True)
+
+@admin.action(description="Mark as accepted")
+def mark_as_accepted(modeladmin, request, queryset):
+     queryset.update(status="accepted")
+
+""""admin.site.register(CONFERENCE)"""
+@admin.register(SUBMISSION)
+class SUBMISSIONAdmin(admin.ModelAdmin):
+    list_display = ('submission_id', 'title', 'status', 'payed', 'created_at', 'updated_at')
+    search_fields = ('title', 'status', 'payed')
+    list_filter = ('status', 'payed')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsetes = {
+        "Information general": {
+            "fields": ("title", "abstract", "keywords")
+        },
+        "document": {
+            "fields": ("paper", "user", "conference")
+        },
+        "Status": {
+            "fields": ("status", "payed")
+        }
+    }
+
+        
+    def save(self, *args, **kwargs):
+        if not self.submission_id:
+            newid = generate_submission_id()
+            while SUBMISSION.objects.filter(submission_id=newid).exists():
+                newid = generate_submission_id()
+            self.submission_id = newid
+        super().save(*args, **kwargs)   
+    actions = [marked_as_payed,mark_as_accepted]
+
+
+
+class submissionInline(admin.StackedInline):
     model = SUBMISSION
     extra = 1
-    readonly_fields = ("submission_date",)
+    readonly_fields =("submission_date",)
 
-
-# pour afficher le tableau de conferance
 @admin.register(CONFERENCE)
-class AdminConferanceModel(admin.ModelAdmin):
-    list_display=("name","Theme","location","start_date","end_date","a")
-    ordering=("start_date",) #pour les organiser
-    list_filter=("Theme",)
-    search_fields=("name","description",)
-    date_hierarchy="start_date"
-
+class CONFERENCEpersonalization(admin.ModelAdmin):
+    list_display = ('name', 'description', 'Theme', 'location', 'start_date', 'end_date', 'created_at', 'updated_at','duration')
+    ordering = ('start_date', 'end_date')
+    list_filter = ('name','Theme')
+    search_fields = ('name', 'Theme')
+    date_hierarchy = 'start_date'
     fieldsets = (
-        ("Informations générales", {
-            "fields": ("name", "Theme", "description")
+        ("information general",{
+            "fields":('conference_id','name','Theme','description')
         }),
-        ("Informations logistiques", {
-            "fields": ("location", "start_date", "end_date")
+        ("logistic info",{
+            "fields":('location','start_date','end_date')
         }),
     )
-    readonly_fields=("conference_id",)
-    def a(self,objet):
-        if objet.start_date and objet.end_date :
-            return (objet.end_date-objet.start_date).days
-        return "rien a signaler"
-    a.short_description="Duration(Days)"
-    inlines = [SubmissionInline]
+    readonly_fields = ('conference_id',)
+    def duration(self, obj):
+        if obj.start_date and obj.end_date:
+            return (obj.end_date - obj.start_date).days
+        return "RAS"
+    duration.short_description = "Duration (days)"
+    inlines = [submissionInline]
